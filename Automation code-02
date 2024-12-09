@@ -2,275 +2,163 @@
 #include <ESP8266WebServer.h>
 
 // Wi-Fi credentials
-const char* ssid = "T R I N I T Y"; // Replace with your Wi-Fi SSID
-const char* password = "Shihab007!2#4%"; // Replace with your Wi-Fi password
+const char* ssid = "T R I N I T Y"; 
+const char* password = "Shihab007!2#4%";
 
-// ESP8266WebServer instance
+// Pin assignments
+const int light1Pin = 4;
+const int light2Pin = 5;
+const int buzzerPin = 0;
+const int motionSensorPin = 2;
+const int light3Pin = 12;
+const int light4Pin = 13;
+
+// States
+bool light1State = false;
+bool light2State = false;
+bool buzzerState = false;
+bool motionSensorEnabled = false;
+bool light3State = false;
+bool light4State = false;
+
+unsigned long lastMotionTime = 0; // Tracks last motion detection
+const unsigned long motionTimeout = 15000; // 15 seconds
+
 ESP8266WebServer server(80);
-
-// GPIO pin definitions
-const int light1 = 4;  // Room 1 Light 1 (GPIO4)
-const int light2 = 5;  // Room 1 Light 2 (GPIO5)
-const int buzzer = 0;  // Buzzer (GPIO0)
-const int motionSensor = 2;  // Motion Sensor (GPIO2)
-
-const int light3 = 12; // Room 2 Light 1 (GPIO12)
-const int light4 = 13; // Room 2 Light 2 (GPIO13)
-
-// Motion sensor timing
-unsigned long lastMotionDetected = 0; 
-const unsigned long motionTimeout = 10000; // 30 seconds timeout
-const unsigned long buzzerTimeout = 5000;  // 15 seconds for buzzer sound
-bool motionDetected = false;
-bool motionSensorEnabled = false; // To check if motion sensor is enabled
-bool buzzerEnabled = false; // To check if buzzer is enabled
-
-// HTML content for the web page
-void handleRoot() {
-  server.send(200, "text/html", R"rawliteral(
- 
-    <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart Home Control System</title>
-  <style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
-    background-color: #070313;
-    color: #ffffff;
-  }
-  header {
-    background: #1f1f1f;
-    color: #ff7c11;
-    text-align: center;
-    padding: 1em;
-  }
-  main {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-  section {
-    width: 100%;
-    margin: 20px;
-    background: #1e1e1e;
-    border-radius: 5px;
-    padding: 20px;
-  }
-  .switch-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 20px;
-  }
-  .switch-card {
-    background-color: #2a2a2a;
-    border-radius: 10px;
-    padding: 15px;
-    text-align: center;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-    transition: transform 0.3s;
-  }
-  .switch-card:hover {
-    transform: translateY(-5px);
-  }
-  button {
-    padding: 10px;
-    background: #09327e;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    margin-top: 10px;
-    width: 100%;
-  }
-  button:hover {
-    background: #45a049;
-  }
-  span {
-    display: block;
-    margin-top: 10px;
-    font-size: 14px;
-    color: #aaa;
-  }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>Smart Home Control System</h1>
-  </header>
-  <main>
-    <section>
-      <h2>Room 1</h2>
-      <div class="switch-grid">
-        <div class="switch-card">
-          <h3>Light 1</h3>
-          <button onclick="toggleLight('light1')">Toggle Light 1</button>
-          <span id="light1-status">Off</span>
-        </div>
-        <div class="switch-card">
-          <h3>Light 2</h3>
-          <button onclick="toggleLight('light2')">Toggle Light 2</button>
-          <span id="light2-status">Off</span>
-        </div>
-        <div class="switch-card">
-          <h3>Buzzer</h3>
-          <button onclick="toggleBuzzer()">Toggle Buzzer</button>
-          <span id="buzzer-status">Off</span>
-        </div>
-        <div class="switch-card">
-          <h3>Motion Sensor</h3>
-          <button onclick="toggleMotionSensor()">Toggle Motion Sensor</button>
-          <span id="motion-sensor-status">Inactive</span>
-        </div>
-      </div>
-    </section>
-
-    <section>
-      <h2>Room 2</h2>
-      <div class="switch-grid">
-        <div class="switch-card">
-          <h3>Light 1</h3>
-          <button onclick="toggleLight('room2-light1')">Toggle Light 1</button>
-          <span id="room2-light1-status">Off</span>
-        </div>
-        <div class="switch-card">
-          <h3>Light 2</h3>
-          <button onclick="toggleLight('room2-light2')">Toggle Light 2</button>
-          <span id="room2-light2-status">Off</span>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <script>
-    function toggleLight(lightId) {
-      fetch(`/${lightId}`).then(() => {
-        const status = document.getElementById(`${lightId}-status`);
-        status.textContent = status.textContent === "Off" ? "On" : "Off";
-      });
-    }
-
-    function toggleBuzzer() {
-      fetch("/toggleBuzzer").then(() => {
-        const status = document.getElementById("buzzer-status");
-        status.textContent = status.textContent === "Off" ? "On" : "Off";
-      });
-    }
-
-    function toggleMotionSensor() {
-      fetch("/toggleMotionSensor").then(() => {
-        const status = document.getElementById("motion-sensor-status");
-        status.textContent = status.textContent === "Inactive" ? "Active" : "Inactive";
-      });
-    }
-  </script>
-</body>
-</html>
-
-  )rawliteral");
-}
-
-// Room 1 Light 1 control
-void toggleLight1() {
-  digitalWrite(light1, !digitalRead(light1));
-  server.send(200, "text/plain", "Light 1 Toggled");
-}
-
-// Room 1 Light 2 control
-void toggleLight2() {
-  digitalWrite(light2, !digitalRead(light2));
-  server.send(200, "text/plain", "Light 2 Toggled");
-}
-
-// Room 2 Light 1 control
-void toggleLight3() {
-  digitalWrite(light3, !digitalRead(light3));
-  server.send(200, "text/plain", "Room 2 Light 1 Toggled");
-}
-
-// Room 2 Light 2 control
-void toggleLight4() {
-  digitalWrite(light4, !digitalRead(light4));
-  server.send(200, "text/plain", "Room 2 Light 2 Toggled");
-}
-
-// Buzzer control
-void toggleBuzzer() {
-  buzzerEnabled = !buzzerEnabled;
-  digitalWrite(buzzer, buzzerEnabled ? HIGH : LOW);
-  server.send(200, "text/plain", buzzerEnabled ? "Buzzer On" : "Buzzer Off");
-}
-
-// Motion Sensor Control
-void toggleMotionSensor() {
-  motionSensorEnabled = !motionSensorEnabled;
-  server.send(200, "text/plain", motionSensorEnabled ? "Motion Sensor Enabled" : "Motion Sensor Disabled");
-}
 
 void setup() {
   Serial.begin(115200);
 
-  pinMode(light1, OUTPUT);
-  pinMode(light2, OUTPUT);
-  pinMode(buzzer, OUTPUT);
-  pinMode(motionSensor, INPUT);
-  pinMode(light3, OUTPUT);
-  pinMode(light4, OUTPUT);
+  // Pin setup
+  pinMode(light1Pin, OUTPUT);
+  pinMode(light2Pin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
+  pinMode(motionSensorPin, INPUT);
+  pinMode(light3Pin, OUTPUT);
+  pinMode(light4Pin, OUTPUT);
 
+  digitalWrite(light1Pin, LOW);
+  digitalWrite(light2Pin, LOW);
+  digitalWrite(buzzerPin, LOW);
+  digitalWrite(light3Pin, LOW);
+  digitalWrite(light4Pin, LOW);
+
+  // Connect to Wi-Fi
   WiFi.begin(ssid, password);
-  unsigned long startAttemptTime = millis();
-  
-  // Wi-Fi connection with timeout
-  while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 10000) {
-    Serial.print(".");
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
+    Serial.print(".");
   }
+  Serial.println("\nWi-Fi connected.");
+  Serial.println(WiFi.localIP());
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("Wi-Fi Connected!");
-  } else {
-    Serial.println("Failed to connect to Wi-Fi.");
-  }
-
+  // Web server routes
   server.on("/", handleRoot);
-  server.on("/light1", toggleLight1);
-  server.on("/light2", toggleLight2);
-  server.on("/room2-light1", toggleLight3);
-  server.on("/room2-light2", toggleLight4);
+  server.on("/toggleLight1", toggleLight1);
+  server.on("/toggleLight2", toggleLight2);
   server.on("/toggleBuzzer", toggleBuzzer);
   server.on("/toggleMotionSensor", toggleMotionSensor);
+  server.on("/toggleLight3", toggleLight3);
+  server.on("/toggleLight4", toggleLight4);
 
   server.begin();
-  Serial.println("HTTP server started");
+  Serial.println("Web server started.");
 }
 
 void loop() {
   server.handleClient();
 
-  // Motion Sensor Handling with Auto-Off
+  // Motion sensor logic for Room 1
   if (motionSensorEnabled) {
-    if (digitalRead(motionSensor) == HIGH) {
-      lastMotionDetected = millis();
-      motionDetected = true;
-      // Turn on lights if motion detected
-      digitalWrite(light1, HIGH);
-      digitalWrite(light2, HIGH);
-    } else if (millis() - lastMotionDetected > motionTimeout && motionDetected) {
-      digitalWrite(light1, LOW);
-      digitalWrite(light2, LOW);
-      motionDetected = false;
-    }
+    if (digitalRead(motionSensorPin) == HIGH) {
+      // Motion detected
+      lastMotionTime = millis();
+      digitalWrite(light1Pin, HIGH);
+      digitalWrite(light2Pin, HIGH);
 
-    // Buzzer sound when motion is detected, if buzzer is enabled
-    if (motionDetected && buzzerEnabled) {
-      digitalWrite(buzzer, HIGH);
-      delay(buzzerTimeout);
-      digitalWrite(buzzer, LOW);
+      if (buzzerState) {
+        digitalWrite(buzzerPin, HIGH);
+        delay(5000);
+        digitalWrite(buzzerPin, LOW);
+      }
+    } else if (millis() - lastMotionTime > motionTimeout) {
+      // No motion detected for the timeout duration
+      digitalWrite(light1Pin, LOW);
+      digitalWrite(light2Pin, LOW);
     }
   }
+}
+
+// Web page content
+String generateHTML() {
+  String html = "<!DOCTYPE html><html><head><title>Smart Home</title>";
+  html += "<style>button { padding: 10px; font-size: 16px; margin: 5px; }</style></head><body>";
+  html += "<h1>Smart Home Control</h1>";
+  
+  // Room 1 Controls
+  html += "<h2>Room 1</h2>";
+  html += "<button onclick=\"toggle('toggleLight1')\">Light 1: " + String(light1State ? "On" : "Off") + "</button>";
+  html += "<button onclick=\"toggle('toggleLight2')\">Light 2: " + String(light2State ? "On" : "Off") + "</button>";
+  html += "<button onclick=\"toggle('toggleBuzzer')\">Buzzer: " + String(buzzerState ? "On" : "Off") + "</button>";
+  html += "<button onclick=\"toggle('toggleMotionSensor')\">Motion Sensor: " + String(motionSensorEnabled ? "On" : "Off") + "</button>";
+  
+  // Room 2 Controls
+  html += "<h2>Room 2</h2>";
+  html += "<button onclick=\"toggle('toggleLight3')\">Light 1: " + String(light3State ? "On" : "Off") + "</button>";
+  html += "<button onclick=\"toggle('toggleLight4')\">Light 2: " + String(light4State ? "On" : "Off") + "</button>";
+
+  html += "<script>";
+  html += "function toggle(endpoint) { fetch('/' + endpoint).then(() => location.reload()); }";
+  html += "</script>";
+  html += "</body></html>";
+  return html;
+}
+
+// Web handlers
+void handleRoot() {
+  server.send(200, "text/html", generateHTML());
+}
+
+void toggleLight1() {
+  if (!motionSensorEnabled) {
+    light1State = !light1State;
+    digitalWrite(light1Pin, light1State ? HIGH : LOW);
+  }
+  server.send(200, "text/plain", "OK");
+}
+
+void toggleLight2() {
+  if (!motionSensorEnabled) {
+    light2State = !light2State;
+    digitalWrite(light2Pin, light2State ? HIGH : LOW);
+  }
+  server.send(200, "text/plain", "OK");
+}
+
+void toggleBuzzer() {
+  buzzerState = !buzzerState;
+  server.send(200, "text/plain", "OK");
+}
+
+void toggleMotionSensor() {
+  motionSensorEnabled = !motionSensorEnabled;
+
+  if (!motionSensorEnabled) {
+    // Reset lights to manual mode
+    digitalWrite(light1Pin, light1State ? HIGH : LOW);
+    digitalWrite(light2Pin, light2State ? HIGH : LOW);
+  }
+  server.send(200, "text/plain", "OK");
+}
+
+void toggleLight3() {
+  light3State = !light3State;
+  digitalWrite(light3Pin, light3State ? HIGH : LOW);
+  server.send(200, "text/plain", "OK");
+}
+
+void toggleLight4() {
+  light4State = !light4State;
+  digitalWrite(light4Pin, light4State ? HIGH : LOW);
+  server.send(200, "text/plain", "OK");
 }
