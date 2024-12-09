@@ -1,5 +1,3 @@
-# Home-Automation-03
-
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 
@@ -21,8 +19,9 @@ const int light4 = 13; // Room 2 Light 2 (GPIO13)
 
 // Motion sensor timing
 unsigned long lastMotionDetected = 0; 
-const unsigned long motionTimeout = 30000; // 30 seconds timeout
+const unsigned long motionTimeout = 15000; // 15 seconds timeout
 bool motionDetected = false;
+bool motionSensorEnabled = false; // Track if the motion sensor is enabled or not
 
 // HTML content for the web page
 void handleRoot() {
@@ -80,7 +79,9 @@ void handleRoot() {
       <span id="light2-status">Off</span><br>
       <button onclick="toggleBuzzer()">Toggle Buzzer</button>
       <span id="buzzer-status">Off</span><br>
-      <span>Motion Sensor Status: </span><span id="motion-sensor-status">Inactive</span>
+      <span>Motion Sensor Status: </span><span id="motion-sensor-status">Inactive</span><br>
+      <button onclick="toggleMotionSensor()">Toggle Motion Sensor</button>
+      <span id="motion-sensor-control-status">Disabled</span>
     </section>
     <section>
       <h2>Room 2</h2>
@@ -91,16 +92,33 @@ void handleRoot() {
     </section>
     <script>
       function toggleLight(lightId) {
-        fetch(`/${lightId}`).then(() => {
-          const status = document.getElementById(`${lightId}-status`);
-          status.textContent = status.textContent === "Off" ? "On" : "Off";
-        });
+        fetch(`/${lightId}`)
+          .then(response => response.text())
+          .then(status => {
+            const statusElement = document.getElementById(`${lightId}-status`);
+            statusElement.textContent = status === "ON" ? "On" : "Off";
+          })
+          .catch(error => console.error("Error:", error));
       }
+
       function toggleBuzzer() {
-        fetch("/toggleBuzzer").then(() => {
-          const status = document.getElementById("buzzer-status");
-          status.textContent = status.textContent === "Off" ? "On" : "Off";
-        });
+        fetch("/toggleBuzzer")
+          .then(response => response.text())
+          .then(status => {
+            const buzzerStatus = document.getElementById("buzzer-status");
+            buzzerStatus.textContent = status === "ON" ? "On" : "Off";
+          })
+          .catch(error => console.error("Error:", error));
+      }
+
+      function toggleMotionSensor() {
+        fetch("/toggleMotionSensor")
+          .then(response => response.text())
+          .then(status => {
+            const motionStatus = document.getElementById("motion-sensor-control-status");
+            motionStatus.textContent = status === "Motion Sensor Enabled" ? "Enabled" : "Disabled";
+          })
+          .catch(error => console.error("Error:", error));
       }
     </script>
   </main>
@@ -111,32 +129,43 @@ void handleRoot() {
 
 // Room 1 Light 1 control
 void toggleLight1() {
-  digitalWrite(light1, !digitalRead(light1));
-  server.send(200, "text/plain", "Light 1 Toggled");
+  bool lightState = !digitalRead(light1);
+  digitalWrite(light1, lightState);
+  server.send(200, "text/plain", lightState ? "ON" : "OFF");  // Respond with the current status
 }
 
 // Room 1 Light 2 control
 void toggleLight2() {
-  digitalWrite(light2, !digitalRead(light2));
-  server.send(200, "text/plain", "Light 2 Toggled");
+  bool lightState = !digitalRead(light2);
+  digitalWrite(light2, lightState);
+  server.send(200, "text/plain", lightState ? "ON" : "OFF");
 }
 
 // Room 2 Light 1 control
 void toggleLight3() {
-  digitalWrite(light3, !digitalRead(light3));
-  server.send(200, "text/plain", "Room 2 Light 1 Toggled");
+  bool lightState = !digitalRead(light3);
+  digitalWrite(light3, lightState);
+  server.send(200, "text/plain", lightState ? "ON" : "OFF");
 }
 
 // Room 2 Light 2 control
 void toggleLight4() {
-  digitalWrite(light4, !digitalRead(light4));
-  server.send(200, "text/plain", "Room 2 Light 2 Toggled");
+  bool lightState = !digitalRead(light4);
+  digitalWrite(light4, lightState);
+  server.send(200, "text/plain", lightState ? "ON" : "OFF");
 }
 
 // Buzzer control
 void toggleBuzzer() {
-  digitalWrite(buzzer, !digitalRead(buzzer));
-  server.send(200, "text/plain", "Buzzer Toggled");
+  bool buzzerState = !digitalRead(buzzer);
+  digitalWrite(buzzer, buzzerState);
+  server.send(200, "text/plain", buzzerState ? "ON" : "OFF");
+}
+
+// Toggle motion sensor behavior
+void toggleMotionSensor() {
+  motionSensorEnabled = !motionSensorEnabled;
+  server.send(200, "text/plain", motionSensorEnabled ? "Motion Sensor Enabled" : "Motion Sensor Disabled");
 }
 
 void setup() {
@@ -163,6 +192,7 @@ void setup() {
   server.on("/room2-light1", toggleLight3);
   server.on("/room2-light2", toggleLight4);
   server.on("/toggleBuzzer", toggleBuzzer);
+  server.on("/toggleMotionSensor", toggleMotionSensor);
 
   server.begin();
   Serial.println("HTTP server started");
@@ -171,13 +201,19 @@ void setup() {
 void loop() {
   server.handleClient();
 
-  // Motion Sensor Handling
-  if (digitalRead(motionSensor) == HIGH) {
-    lastMotionDetected = millis();
-    motionDetected = true;
-  } else if (millis() - lastMotionDetected > motionTimeout && motionDetected) {
-    digitalWrite(light1, LOW);
-    digitalWrite(light2, LOW);
-    motionDetected = false;
+  // Motion Sensor Handling (if motion sensor is enabled)
+  if (motionSensorEnabled) {
+    if (digitalRead(motionSensor) == HIGH) {
+      lastMotionDetected = millis();
+      motionDetected = true;
+      if (!digitalRead(light1)) {
+        digitalWrite(light1, HIGH);
+        digitalWrite(light2, HIGH);
+      }
+    } else if (millis() - lastMotionDetected > motionTimeout && motionDetected) {
+      digitalWrite(light1, LOW);
+      digitalWrite(light2, LOW);
+      motionDetected = false;
+    }
   }
 }
