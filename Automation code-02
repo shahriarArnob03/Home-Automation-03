@@ -8,8 +8,8 @@ const char* password = "Shihab007!2#4%";
 // Pin assignments
 const int light1Pin = 4;
 const int light2Pin = 5;
-const int buzzerPin = 0;
-const int motionSensorPin = 2;
+const int buzzerPin = 14;
+const int motionSensorPin = 16;
 const int light3Pin = 12;
 const int light4Pin = 13;
 
@@ -71,18 +71,22 @@ void loop() {
   // Motion sensor logic for Room 1
   if (motionSensorEnabled) {
     if (digitalRead(motionSensorPin) == HIGH) {
+      Serial.println("Motion High");
+      
       // Motion detected
       lastMotionTime = millis();
       digitalWrite(light1Pin, HIGH);
       digitalWrite(light2Pin, HIGH);
 
-      if (buzzerState) {
+      if (!buzzerState) {
+         Serial.println("Buzzer High");
         digitalWrite(buzzerPin, HIGH);
         delay(5000);
         digitalWrite(buzzerPin, LOW);
       }
     } else if (millis() - lastMotionTime > motionTimeout) {
       // No motion detected for the timeout duration
+       Serial.println("No Motion Turning Lights Off");
       digitalWrite(light1Pin, LOW);
       digitalWrite(light2Pin, LOW);
     }
@@ -90,53 +94,175 @@ void loop() {
 }
 
 // Web page content
-String generateHTML() {
-  String html = "<!DOCTYPE html><html><head><title>Smart Home</title>";
-  html += "<style>button { padding: 10px; font-size: 16px; margin: 5px; }</style></head><body>";
-  html += "<h1>Smart Home Control</h1>";
-  
-  // Room 1 Controls
-  html += "<h2>Room 1</h2>";
-  html += "<button onclick=\"toggle('toggleLight1')\">Light 1: " + String(light1State ? "On" : "Off") + "</button>";
-  html += "<button onclick=\"toggle('toggleLight2')\">Light 2: " + String(light2State ? "On" : "Off") + "</button>";
-  html += "<button onclick=\"toggle('toggleBuzzer')\">Buzzer: " + String(buzzerState ? "On" : "Off") + "</button>";
-  html += "<button onclick=\"toggle('toggleMotionSensor')\">Motion Sensor: " + String(motionSensorEnabled ? "On" : "Off") + "</button>";
-  
-  // Room 2 Controls
-  html += "<h2>Room 2</h2>";
-  html += "<button onclick=\"toggle('toggleLight3')\">Light 1: " + String(light3State ? "On" : "Off") + "</button>";
-  html += "<button onclick=\"toggle('toggleLight4')\">Light 2: " + String(light4State ? "On" : "Off") + "</button>";
-
-  html += "<script>";
-  html += "function toggle(endpoint) { fetch('/' + endpoint).then(() => location.reload()); }";
-  html += "</script>";
-  html += "</body></html>";
-  return html;
-}
-
-// Web handlers
 void handleRoot() {
-  server.send(200, "text/html", generateHTML());
+  server.send(200, "text/html", R"rawliteral(
+ 
+    <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Home Control System</title>
+  <style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #070313;
+    color: #ffffff;
+  }
+  header {
+    background: #1f1f1f;
+    color: #ff7c11;
+    text-align: center;
+    padding: 1em;
+  }
+  main {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  section {
+    width: 100%;
+    margin: 20px;
+    background: #1e1e1e;
+    border-radius: 5px;
+    padding: 20px;
+  }
+  .switch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 20px;
+  }
+  .switch-card {
+    background-color: #2a2a2a;
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s;
+  }
+  .switch-card:hover {
+    transform: translateY(-5px);
+  }
+  button {
+    padding: 10px;
+    background: #09327e;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+    width: 100%;
+  }
+  button:hover {
+    background: #45a049;
+  }
+  span {
+    display: block;
+    margin-top: 10px;
+    font-size: 14px;
+    color: #aaa;
+  }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Smart Home Control System</h1>
+  </header>
+  <main>
+    <section>
+      <h2>Room 1</h2>
+      <div class="switch-grid">
+        <div class="switch-card">
+          <h3>Light 1</h3>
+          <button onclick="toggleLight('light1')">Toggle Light 1</button>
+          <span id="light1-status">Off</span>
+        </div>
+        <div class="switch-card">
+          <h3>Light 2</h3>
+          <button onclick="toggleLight('light2')">Toggle Light 2</button>
+          <span id="light2-status">Off</span>
+        </div>
+        <div class="switch-card">
+          <h3>Buzzer</h3>
+          <button onclick="toggleBuzzer()">Toggle Buzzer</button>
+          <span id="buzzer-status">Off</span>
+        </div>
+        <div class="switch-card">
+          <h3>Motion Sensor</h3>
+          <button onclick="toggleMotionSensor()">Toggle Motion Sensor</button>
+          <span id="motion-sensor-status">Inactive</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Room 2</h2>
+      <div class="switch-grid">
+        <div class="switch-card">
+          <h3>Light 1</h3>
+          <button onclick="toggleLight('room2-light1')">Toggle Light 1</button>
+          <span id="room2-light1-status">Off</span>
+        </div>
+        <div class="switch-card">
+          <h3>Light 2</h3>
+          <button onclick="toggleLight('room2-light2')">Toggle Light 2</button>
+          <span id="room2-light2-status">Off</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function toggleLight(lightId) {
+      fetch(`/${lightId}`).then(() => {
+        const status = document.getElementById(`${lightId}-status`);
+        status.textContent = status.textContent === "Off" ? "On" : "Off";
+      });
+    }
+
+    function toggleBuzzer() {
+      fetch("/toggleBuzzer").then(() => {
+        const status = document.getElementById("buzzer-status");
+        status.textContent = status.textContent === "Off" ? "On" : "Off";
+      });
+    }
+
+    function toggleMotionSensor() {
+      fetch("/toggleMotionSensor").then(() => {
+        const status = document.getElementById("motion-sensor-status");
+        status.textContent = status.textContent === "Inactive" ? "Active" : "Inactive";
+      });
+    }
+  </script>
+</body>
+</html>
+
+  )rawliteral");
 }
+
+
 
 void toggleLight1() {
-  if (!motionSensorEnabled) {
     light1State = !light1State;
     digitalWrite(light1Pin, light1State ? HIGH : LOW);
-  }
+     Serial.println("Light1 Toggled");
+  
   server.send(200, "text/plain", "OK");
 }
 
 void toggleLight2() {
-  if (!motionSensorEnabled) {
     light2State = !light2State;
     digitalWrite(light2Pin, light2State ? HIGH : LOW);
-  }
+    Serial.println("Light2 Toggled");
   server.send(200, "text/plain", "OK");
 }
 
 void toggleBuzzer() {
   buzzerState = !buzzerState;
+  Serial.println("Buzzer Toggled");
   server.send(200, "text/plain", "OK");
 }
 
@@ -154,11 +280,13 @@ void toggleMotionSensor() {
 void toggleLight3() {
   light3State = !light3State;
   digitalWrite(light3Pin, light3State ? HIGH : LOW);
+  Serial.println("Light3 Toggled");
   server.send(200, "text/plain", "OK");
 }
 
 void toggleLight4() {
   light4State = !light4State;
   digitalWrite(light4Pin, light4State ? HIGH : LOW);
+  Serial.println("Light4 Toggled");
   server.send(200, "text/plain", "OK");
 }
